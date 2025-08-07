@@ -1,10 +1,12 @@
 ### 📊 Explicação das Métricas do CSV
+*Foi comparado o impacto de diferentes proporções em relação a forma de pagamento escolhida por clientes. (e.g. 60% dinheiro 20% Pix 20% Tickets)*
 
+**Tempo dado em segundos**
 | Nome da Coluna | Descrição |
 |----------------|-----------|
 | `clientes_atendidos` | Total de clientes que **foram completamente atendidos** no sistema (exclui os não atendidos). |
-| `espera_media_geral` | Tempo médio de espera na fila para todos os clientes (em segundos). Inclui todas as formas de pagamento. |
-| `tempo_medio_sistema_geral` | Tempo médio total que o cliente passou no sistema, do momento que chegou até sair (em segundos). |
+| `espera_media_geral` | Tempo médio de espera na fila para todos os clientes. Inclui todas as formas de pagamento. |
+| `tempo_medio_sistema_geral` | Tempo médio total que o cliente passou no sistema, do momento que chegou até sair. |
 | `espera_media_dinheiro_ticket` | Tempo médio de espera **somente** dos clientes que pagaram em dinheiro ou compraram ticket. |
 | `tempo_medio_sistema_dinheiro_ticket` | Tempo médio no sistema para clientes que pagaram em dinheiro ou ticket. |
 | `espera_media_pix` | Tempo médio de espera para os clientes que pagaram via PIX. |
