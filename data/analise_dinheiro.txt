@@ -1,0 +1,68 @@
+
+--- Tempo médio de espera (s) ---
+Média: 344.7480
+Desvio padrão: 157.7538
+Coeficiente de variação (CV): 45.76%
+Intervalo de confiança 95%: [288.2965, 401.1995]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.3213 → Distribuição normal
+
+--- Tempo total no sistema (s) ---
+Média: 426.7153
+Desvio padrão: 188.9448
+Coeficiente de variação (CV): 44.28%
+Intervalo de confiança 95%: [359.1023, 494.3284]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.3669 → Distribuição normal
+
+--- Tamanho médio da fila PIX ---
+Média: 2.2920
+Desvio padrão: 0.6317
+Coeficiente de variação (CV): 27.56%
+Intervalo de confiança 95%: [2.0660, 2.5180]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.1202 → Distribuição normal
+
+--- Pico da fila PIX ---
+Média: 7.2333
+Desvio padrão: 1.7357
+Coeficiente de variação (CV): 24.00%
+Intervalo de confiança 95%: [6.6122, 7.8544]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.0250 → Não normal
+
+--- Tamanho final da fila PIX ---
+Média: 1.1667
+Desvio padrão: 1.8585
+Coeficiente de variação (CV): 159.30%
+Intervalo de confiança 95%: [0.5016, 1.8317]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.0000 → Não normal
+
+--- Clientes não atendidos ---
+Média: 70.2000
+Desvio padrão: 27.2946
+Coeficiente de variação (CV): 38.88%
+Intervalo de confiança 95%: [60.4328, 79.9672]
+Amostra: 30 execuções
+Teste de Shapiro-Wilk: p = 0.8943 → Distribuição normal
+
+--- Proporção média de clientes prioritários ---
+3.09% ± 0.18% (IC 95%)
+Coeficiente de variação (CV): 16.16%
+
+--- Proporção média de clientes comprando tickets ---
+0.00% ± 0.00% (IC 95%)
+Coeficiente de variação (CV): inf%
+
+--- Proporção média de clientes com erro ---
+1.07% ± 0.13% (IC 95%)
+Coeficiente de variação (CV): 34.93%
+
+--- Proporção média de clientes sem troco ---
+0.78% ± 0.05% (IC 95%)
+Coeficiente de variação (CV): 16.48%
+
+--- Proporção média de clientes não atendidos ---
+8.59% ± 1.22% (IC 95%)
+Coeficiente de variação (CV): 39.62%

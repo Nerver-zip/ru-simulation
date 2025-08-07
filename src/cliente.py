@@ -18,11 +18,11 @@ def gerar_cliente(dia_simulado):
     # 1. Prioridade (0 = prioridade alta, 1 = normal)
     cliente["prioridade"] = 0 if random.random() < 0.03 else 1  # 3% dos clientes têm prioridade (idosos, gestantes, etc)
 
-    # 2. Forma de pagamento: 45% dinheiro, 30% ticket, 25% pix
+    # 2. Forma de pagamento: 20% dinheiro, 60% ticket, 20% pix
     r = random.random()
-    if r < 0.45:
+    if r < 0.20:
         cliente["forma_pagamento"] = "dinheiro"
-    elif r < 0.75:
+    elif r < 0.80:
         cliente["forma_pagamento"] = "ticket"
     else:
         cliente["forma_pagamento"] = "pix"

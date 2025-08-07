@@ -4,14 +4,14 @@ from .caixa import Caixa
 from .cliente import gerar_cliente
 
 # --- PARÂMETROS GERAIS ---
-dia_semana = "segunda"             # [segunda, terca, quarta, quinta, sexta, sabado, domingo] Segunda e terça pode comprar ticket
+dia_semana = "quarta"             # [segunda, terca, quarta, quinta, sexta, sabado, domingo] Segunda e terça pode comprar ticket
 tempo_base = 5                     # Tempo mínimo de atendimento em segundos
 INTERVALO_CHEGADA = 10             # Média de tempo entre clientes
                                    # Tempo total da simulação, por padrão 2.5h em dias de semana e 1.5h em finais de semana
 TEMPO_SIMULACAO = 3600 * 2.5 if dia_semana != "sabado" and dia_semana != "domingo" else 3600 * 1.5
 
 # --- ESTADO INICIAL DO CAIXA ---
-CAIXA_INICIAL = {1: 20, 2: 20, 5: 10, 10: 8, 20: 3, 50: 1}
+CAIXA_INICIAL = {1: 30, 2: 30, 5: 15, 10: 8, 20: 3, 50: 1}
 
 # --- ESTADO DE REPOSIÇÃO DO CAIXA ---
 CAIXA_REPOSICAO = {1: 20, 2: 20, 5: 10, 10: 8, 20: 3, 50: 1}
@@ -33,17 +33,38 @@ INTERVALO_EVENTO_ANORMAL = (5, 100)
 
 # --- MÉTRICAS ---
 estatisticas = {
-    "clientes_totais": 0,
-    "tempo_total_espera": 0.0,
-    "tempo_total_sistema": 0.0,
-    "clientes_com_erro": 0,
-    "clientes_prioritarios": 0,
-    "clientes_compra_ticket": 0,
-    "sem_troco": 0,
-    "maior_espera": 0.0,
-    "pico_fila": 0,
-    "soma_fila": 0,
-    "instantes_fila": 0,
+    "clientes_totais": 0,               # Total de clientes que chegaram
+
+    # Para Dinheiro + Ticket
+    "tempo_espera_dinheiro_ticket": 0.0,   # Soma dos tempos de espera na fila principal (dinheiro + ticket)
+    "tempo_sistema_dinheiro_ticket": 0.0,  # Soma dos tempos totais no sistema (espera + atendimento) (dinheiro + ticket)
+    "cont_dinheiro_ticket": 0,              # Contagem clientes dinheiro + ticket
+
+    # Para PIX
+    "tempo_espera_pix": 0.0,                # Soma do tempo de espera na fila principal para clientes PIX
+    "tempo_pix_pagamento": 0.0,             # Soma do tempo gasto na fila paralela PIX (pagamento pós-atendimento)
+    "tempo_sistema_pix": 0.0,               # Soma do tempo total no sistema (espera + atendimento + pagamento PIX)
+    "cont_pix": 0,                          # Contagem clientes PIX
+
+    # Total geral (todos clientes)
+    "tempo_espera_total": 0.0,              # Soma dos tempos de espera para todos os clientes
+    "tempo_sistema_total": 0.0,             # Soma dos tempos totais no sistema para todos os clientes
+    "cont_total": 0,                        # Contagem geral clientes (mesmo que clientes_totais)
+
+    "clientes_com_erro": 0,                 # Clientes que saíram sem atendimento
+    "clientes_prioritarios": 0,             # Contagem de clientes prioritários
+    "clientes_compra_ticket": 0,            # Quantos clientes compraram ticket
+    "sem_troco": 0,                         # Quantos tiveram atraso por falta de troco
+    "maior_espera": 0.0,                    # Maior tempo de espera individual
+    "pico_fila": 0,                         # Maior tamanho da fila principal observado
+    "soma_fila": 0,                         # Soma dos tamanhos da fila principal (para média)
+    "instantes_fila": 0,                    # Número de amostras da fila principal
+
+    # Métricas da fila paralela do PIX
+    "fila_pix_momentos": [],                # Lista com o tamanho da fila PIX ao longo do tempo
+    "fila_pix_pico": 0,                     # Maior número simultâneo de clientes no PIX
+    "fila_pix_final": 0,                    # Quantos ainda estavam na fila do PIX ao fim da simulação
+    "fila_pix_media": 0.0                   # Média do tamanho da fila paralela do PIX
 }
 
 def monitorar_fila(env, fila):
@@ -55,13 +76,27 @@ def monitorar_fila(env, fila):
         yield env.timeout(1)
 
 # Simula o tempo do pagamento com PIX em segundo plano, sem travar o atendimento de outros clientes
-def simular_pix(env, cliente, inicio_pix):
-    tempo_pix = random.uniform(*INTERVALO_PIX)
-    print(f"[{inicio_pix:.1f}s] Cliente #{cliente['id']} iniciou PIX (estimado: {tempo_pix:.1f}s)")
-    yield env.timeout(tempo_pix)
-    print(f"[{env.now:.1f}s] Cliente #{cliente['id']} concluiu PIX (durou {env.now - inicio_pix:.1f}s)")
+def simular_pix(env, cliente, fila_pix):
+    with fila_pix.request() as req:
+        yield req
 
-def atendimento(env, cliente, caixa, fila):
+        # --- Registro do tamanho da fila PIX no início do atendimento ---
+        tamanho_atual = len(fila_pix.queue) + 1  
+        estatisticas["fila_pix_momentos"].append(tamanho_atual)
+        estatisticas["fila_pix_pico"] = max(estatisticas["fila_pix_pico"], tamanho_atual)
+
+        inicio_pix = env.now
+        tempo_pix = random.uniform(*INTERVALO_PIX)
+        print(f"[{inicio_pix:.1f}s] Cliente #{cliente['id']} iniciou PIX (estimado: {tempo_pix:.1f}s)")
+        yield env.timeout(tempo_pix)
+        print(f"[{env.now:.1f}s] Cliente #{cliente['id']} concluiu PIX (durou {env.now - inicio_pix:.1f}s)")
+
+        duracao_pix = env.now - inicio_pix
+        estatisticas["tempo_pix_pagamento"] += duracao_pix
+        estatisticas["tempo_sistema_pix"] += duracao_pix
+        estatisticas["tempo_sistema_total"] += duracao_pix
+
+def atendimento(env, cliente, caixa, fila, fila_pix):
     chegada = env.now
     print(f"[{chegada:.1f}s] Cliente #{cliente['id']} chegou - prioridade: {cliente['prioridade']}, pagamento: {cliente['forma_pagamento']}, valor pago: {cliente['valor_pago']}, quer_ticket: {cliente['quer_ticket']}")
 
@@ -72,8 +107,18 @@ def atendimento(env, cliente, caixa, fila):
         espera = inicio_servico - chegada
         print(f"[{inicio_servico:.1f}s] Cliente #{cliente['id']} iniciou atendimento (esperou {espera:.1f}s)")
 
+        # --- Atualiza tempos de espera separados ---
+        if cliente["forma_pagamento"] == "pix":
+            estatisticas["tempo_espera_pix"] += espera
+            estatisticas["tempo_espera_total"] += espera
+            estatisticas["cont_pix"] += 1
+        else:
+            estatisticas["tempo_espera_dinheiro_ticket"] += espera
+            estatisticas["tempo_espera_total"] += espera
+            estatisticas["cont_dinheiro_ticket"] += 1
+
+        estatisticas["cont_total"] += 1
         estatisticas["clientes_totais"] += 1
-        estatisticas["tempo_total_espera"] += espera
         estatisticas["maior_espera"] = max(estatisticas["maior_espera"], espera)
 
         tempo_atendimento = tempo_base
@@ -90,7 +135,11 @@ def atendimento(env, cliente, caixa, fila):
                 yield env.timeout(tempo_atendimento)
                 fim_servico = env.now
                 tempo_sistema = fim_servico - chegada
-                estatisticas["tempo_total_sistema"] += tempo_sistema
+
+                # Atualiza tempo sistema para PIX e total
+                estatisticas["tempo_sistema_pix"] += tempo_sistema
+                estatisticas["tempo_sistema_total"] += tempo_sistema
+
                 if cliente["prioridade"] == 0:
                     estatisticas["clientes_prioritarios"] += 1
                 return
@@ -103,7 +152,11 @@ def atendimento(env, cliente, caixa, fila):
                 yield env.timeout(tempo_atendimento)
                 fim_servico = env.now
                 tempo_sistema = fim_servico - chegada
-                estatisticas["tempo_total_sistema"] += tempo_sistema
+
+                # Atualiza tempo sistema para dinheiro+ticket e total
+                estatisticas["tempo_sistema_dinheiro_ticket"] += tempo_sistema
+                estatisticas["tempo_sistema_total"] += tempo_sistema
+
                 if cliente["prioridade"] == 0:
                     estatisticas["clientes_prioritarios"] += 1
                 return
@@ -121,16 +174,25 @@ def atendimento(env, cliente, caixa, fila):
             yield env.timeout(tempo_atendimento)
             fim_servico = env.now
             tempo_sistema = fim_servico - chegada
-            estatisticas["tempo_total_sistema"] += tempo_sistema
+
+            # Atualiza tempo sistema para PIX e total (somente atendimento inicial aqui)
+            estatisticas["tempo_sistema_pix"] += tempo_sistema
+            estatisticas["tempo_sistema_total"] += tempo_sistema
+
             print(f"[{fim_servico:.1f}s] Cliente #{cliente['id']} liberou caixa (vai pagar via PIX fora da fila)")
-            env.process(simular_pix(env, cliente, env.now)) # Pagamento em paralelo, fora da fila 
+            env.process(simular_pix(env, cliente, fila_pix)) # Pagamento em paralelo, fora da fila 
 
         elif cliente["forma_pagamento"] == "ticket":
             tempo_pagamento = random.uniform(*INTERVALO_PAGAMENTO_TICKET)
             print(f"  + Cliente #{cliente['id']} pagando com ticket: {tempo_pagamento:.1f}s")
             yield env.timeout(tempo_atendimento + tempo_pagamento)
             fim_servico = env.now
-        
+            tempo_sistema = fim_servico - chegada
+
+            # Atualiza tempo sistema para dinheiro+ticket e total
+            estatisticas["tempo_sistema_dinheiro_ticket"] += tempo_sistema
+            estatisticas["tempo_sistema_total"] += tempo_sistema
+
         else:
             valor_pago = cliente["valor_pago"]
             troco = valor_pago - cliente["valor_compra"]
@@ -160,31 +222,41 @@ def atendimento(env, cliente, caixa, fila):
 
             yield env.timeout(tempo_total)
             fim_servico = env.now
+            tempo_sistema = fim_servico - chegada
+
+            # Atualiza tempo sistema para dinheiro+ticket e total
+            estatisticas["tempo_sistema_dinheiro_ticket"] += tempo_sistema
+            estatisticas["tempo_sistema_total"] += tempo_sistema
 
 
-        tempo_sistema = fim_servico - chegada
-        estatisticas["tempo_total_sistema"] += tempo_sistema
         print(f"[{fim_servico:.1f}s] Cliente #{cliente['id']} saiu. Tempo total no sistema: {tempo_sistema:.1f}s\n")
 
         if cliente["prioridade"] == 0:
             estatisticas["clientes_prioritarios"] += 1
 
-def gerar_clientes(env, caixa, fila):
+def gerar_clientes(env, caixa, fila, fila_pix):
     while True:
         cliente = gerar_cliente(dia_semana)
-        env.process(atendimento(env, cliente, caixa, fila))
+        env.process(atendimento(env, cliente, caixa, fila, fila_pix))
         yield env.timeout(random.expovariate(1.0 / INTERVALO_CHEGADA))
 
 def rodar_simulacao():
     env = simpy.Environment()
     fila = simpy.PriorityResource(env, capacity=1)
+    fila_pix = simpy.Resource(env, capacity=1)
     caixa = Caixa(CAIXA_INICIAL)
 
-    env.process(gerar_clientes(env, caixa, fila))
+    env.process(gerar_clientes(env, caixa, fila, fila_pix))
     env.process(monitorar_fila(env, fila))
     env.run(until=TEMPO_SIMULACAO)
 
     clientes_nao_atendidos = len(fila.queue)
+
+    estatisticas["fila_pix_final"] = len(fila_pix.queue)
+    estatisticas["fila_pix_media"] = (
+        sum(estatisticas["fila_pix_momentos"]) / len(estatisticas["fila_pix_momentos"])
+        if estatisticas["fila_pix_momentos"] else 0
+    )
 
     # --- RESULTADOS ---
     total = estatisticas["clientes_totais"]
@@ -192,8 +264,12 @@ def rodar_simulacao():
     if total > 0:
         print(f"Clientes atendidos: {total}")
         print(f"Clientes não atendidos: {clientes_nao_atendidos}")
-        print(f"Tempo médio de espera: {estatisticas['tempo_total_espera'] / total:.2f}s")
-        print(f"Tempo médio no sistema: {estatisticas['tempo_total_sistema'] / total:.2f}s")
+        print(f"Tempo médio de espera (dinheiro+ticket): {estatisticas['tempo_espera_dinheiro_ticket'] / max(1, estatisticas['cont_dinheiro_ticket']):.2f}s")
+        print(f"Tempo médio de espera (PIX): {estatisticas['tempo_espera_pix'] / max(1, estatisticas['cont_pix']):.2f}s")
+        print(f"Tempo médio de espera (total): {estatisticas['tempo_espera_total'] / max(1, estatisticas['cont_total']):.2f}s")
+        print(f"Tempo médio no sistema (dinheiro+ticket): {estatisticas['tempo_sistema_dinheiro_ticket'] / max(1, estatisticas['cont_dinheiro_ticket']):.2f}s")
+        print(f"Tempo médio no sistema (PIX): {estatisticas['tempo_sistema_pix'] / max(1, estatisticas['cont_pix']):.2f}s")
+        print(f"Tempo médio no sistema (total): {estatisticas['tempo_sistema_total'] / max(1, estatisticas['cont_total']):.2f}s")
         print(f"Maior espera observada: {estatisticas['maior_espera']:.2f}s")
         print(f"Tamanho médio da fila: {estatisticas['soma_fila'] / estatisticas['instantes_fila']:.2f}")
         print(f"Pico de fila: {estatisticas['pico_fila']}")
@@ -201,15 +277,29 @@ def rodar_simulacao():
         print(f"Clientes comprando ticket: {estatisticas['clientes_compra_ticket']}")
         print(f"Clientes com erro: {estatisticas['clientes_com_erro']}")
         print(f"Sem troco: {estatisticas['sem_troco']}")
+        print(f"Tamanho médio da fila PIX: {estatisticas['fila_pix_media']:.2f}")
+        print(f"Pico da fila PIX: {estatisticas['fila_pix_pico']}")
+        print(f"Tamanho final da fila PIX: {estatisticas['fila_pix_final']}")
 
-        # Coleta CSV
-        print(f"\nCSV,{total},{estatisticas['tempo_total_espera'] / total:.2f},"
-              f"{estatisticas['tempo_total_sistema'] / total:.2f},"
+        # Coleta CSV 
+        print(f"\nCSV,"
+              f"{total}," 
+              f"{estatisticas['tempo_espera_total'] / total:.2f},"  
+              f"{estatisticas['tempo_sistema_total'] / total:.2f},"  
+              f"{estatisticas['tempo_espera_dinheiro_ticket'] / estatisticas['cont_dinheiro_ticket']:.2f}," 
+              f"{estatisticas['tempo_sistema_dinheiro_ticket'] / estatisticas['cont_dinheiro_ticket']:.2f},"  
+              f"{estatisticas['tempo_espera_pix'] / estatisticas['cont_pix']:.2f}," 
+              f"{estatisticas['tempo_pix_pagamento'] / estatisticas['cont_pix']:.2f}," 
+              f"{estatisticas['tempo_sistema_pix'] / estatisticas['cont_pix']:.2f},"  
               f"{estatisticas['clientes_prioritarios']},"
               f"{estatisticas['clientes_compra_ticket']},"
               f"{estatisticas['clientes_com_erro']},"
-              f"{estatisticas['sem_troco']},{clientes_nao_atendidos}")
+              f"{estatisticas['sem_troco']},"
+              f"{clientes_nao_atendidos},"
+              f"{estatisticas['fila_pix_media']:.2f},"
+              f"{estatisticas['fila_pix_pico']},"
+              f"{estatisticas['fila_pix_final']}"
+              )
 
 if __name__ == "__main__":
     rodar_simulacao()
-
