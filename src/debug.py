@@ -259,7 +259,7 @@ def rodar_simulacao():
     )
 
     # --- RESULTADOS ---
-    total = estatisticas["clientes_totais"]
+    total = estatisticas["cont_total"]
     print("\n--- Resultados ---")
     if total > 0:
         print(f"Clientes atendidos: {total}")

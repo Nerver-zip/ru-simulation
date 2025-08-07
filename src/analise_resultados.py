@@ -4,44 +4,60 @@ import math
 from scipy.stats import shapiro
 
 # --- Configuração ---
-ARQUIVO = "csv/resultados_pix.csv"
-ARQUIVO_SAIDA = "data/analise_pix.txt"  
+ARQUIVO = "csv/resultados_dinheiro.csv"
+ARQUIVO_SAIDA = "data/analise_dinheiro.txt"  
 nivel_confianca = 0.95
 z = 1.96  # z-score para 95% de confiança
 
 # Listas para análise
-esperas = []
-totais = []
-prioritarios = []
-ticket = []
-com_erro = []
+clientes_atendidos = []
+
+espera_media_geral = []
+tempo_medio_sistema_geral = []
+
+espera_media_dinheiro_ticket = []
+tempo_medio_sistema_dinheiro_ticket = []
+
+espera_media_pix = []
+tempo_pagamento_pix_paralelo = []
+tempo_medio_sistema_pix = []
+
+clientes_prioritarios = []
+clientes_ticket = []
+clientes_com_erro = []
 sem_troco = []
-nao_atendidos = []
+clientes_nao_atendidos = []
 
 fila_pix_media = []
 fila_pix_pico = []
 fila_pix_final = []
 
-clientes = []
-
 # Leitura do CSV
 with open(ARQUIVO, newline='') as csvfile:
     leitor = csv.DictReader(csvfile)
     for linha in leitor:
-        clientes.append(int(linha["clientes"]))
+        clientes_atendidos.append(int(linha["clientes_atendidos"]))
 
-        esperas.append(float(linha["espera_media"]))
-        totais.append(float(linha["tempo_total_medio"]))
+        espera_media_geral.append(float(linha["espera_media_geral"]))
+        tempo_medio_sistema_geral.append(float(linha["tempo_medio_sistema_geral"]))
 
-        prioritarios.append(int(linha["clientes_prioritarios"]))
-        ticket.append(int(linha["clientes_ticket"]))
-        com_erro.append(int(linha["clientes_com_erro"]))
+        espera_media_dinheiro_ticket.append(float(linha["espera_media_dinheiro_ticket"]))
+        tempo_medio_sistema_dinheiro_ticket.append(float(linha["tempo_medio_sistema_dinheiro_ticket"]))
+
+        espera_media_pix.append(float(linha["espera_media_pix"]))
+        tempo_pagamento_pix_paralelo.append(float(linha["tempo_pagamento_pix_paralelo"]))
+        tempo_medio_sistema_pix.append(float(linha["tempo_medio_sistema_pix"]))
+
+        clientes_prioritarios.append(int(linha["clientes_prioritarios"]))
+        clientes_ticket.append(int(linha["clientes_ticket"]))
+        clientes_com_erro.append(int(linha["clientes_com_erro"]))
         sem_troco.append(int(linha["sem_troco"]))
-        nao_atendidos.append(int(linha["nao_atendidos"]))
+        clientes_nao_atendidos.append(int(linha["clientes_nao_atendidos"]))
 
         fila_pix_media.append(float(linha["fila_pix_media"]))
         fila_pix_pico.append(int(linha["fila_pix_pico"]))
         fila_pix_final.append(int(linha["fila_pix_final"]))
+
 
 def analisar(nome, dados, f):
     n = len(dados)
@@ -67,7 +83,7 @@ def analisar(nome, dados, f):
         print("Teste de Shapiro-Wilk: amostra insuficiente", file=f)
 
 def proporcao_media(nome, campo, f):
-    props = [v / c if c > 0 else 0 for v, c in zip(campo, clientes)]
+    props = [v / c if c > 0 else 0 for v, c in zip(campo, clientes_atendidos)]
     media = statistics.mean(props)
     desvio = statistics.stdev(props) if len(props) > 1 else 0
     erro = z * desvio / math.sqrt(len(props)) if len(props) > 1 else 0
@@ -79,17 +95,25 @@ def proporcao_media(nome, campo, f):
 
 with open(ARQUIVO_SAIDA, "w") as f:
     # Análises principais contínuas
-    analisar("Tempo médio de espera (s)", esperas, f)
-    analisar("Tempo total no sistema (s)", totais, f)
+    analisar("Tempo médio de espera geral (s)", espera_media_geral, f)
+    analisar("Tempo médio total no sistema geral (s)", tempo_medio_sistema_geral, f)
+
+    analisar("Tempo médio de espera dinheiro/ticket (s)", espera_media_dinheiro_ticket, f)
+    analisar("Tempo médio no sistema dinheiro/ticket (s)", tempo_medio_sistema_dinheiro_ticket, f)
+
+    analisar("Tempo médio de espera PIX (s)", espera_media_pix, f)
+    analisar("Tempo médio pagamento PIX paralelo (s)", tempo_pagamento_pix_paralelo, f)
+    analisar("Tempo médio no sistema PIX (s)", tempo_medio_sistema_pix, f)
+
     analisar("Tamanho médio da fila PIX", fila_pix_media, f)
     analisar("Pico da fila PIX", fila_pix_pico, f)
     analisar("Tamanho final da fila PIX", fila_pix_final, f)
-    analisar("Clientes não atendidos", nao_atendidos, f)
+
+    analisar("Clientes não atendidos", clientes_nao_atendidos, f)
 
     # Proporções
-    proporcao_media("clientes prioritários", prioritarios, f)
-    proporcao_media("clientes comprando tickets", ticket, f)
-    proporcao_media("clientes com erro", com_erro, f)
+    proporcao_media("clientes prioritários", clientes_prioritarios, f)
+    proporcao_media("clientes comprando tickets", clientes_ticket, f)
+    proporcao_media("clientes com erro", clientes_com_erro, f)
     proporcao_media("clientes sem troco", sem_troco, f)
-    proporcao_media("clientes não atendidos", nao_atendidos, f)
-
+    proporcao_media("clientes não atendidos", clientes_nao_atendidos, f)

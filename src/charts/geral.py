@@ -2,14 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Arquivos CSV com dados dos 3 cenários
 files = {
     'Dinheiro 60%': 'csv/resultados_dinheiro.csv',
     'PIX 60%': 'csv/resultados_pix.csv',
     'Ticket 60%': 'csv/resultados_ticket.csv'
 }
 
-# Carregar dados
 data = {key: pd.read_csv(path) for key, path in files.items()}
 
 # 1. Boxplot do tempo médio no sistema geral

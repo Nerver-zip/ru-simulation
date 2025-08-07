@@ -1,0 +1,6 @@
+-Incorporar clientes não atendidos no cálculo do tempo médio total do sistema
+-Fazer todo o tracking de progressão da fila, cliente a cliente durante a simulaçao, plotando num gráfico
+-Expandir com novas filas para uma simulaçao completa?
+   - Fila do Buffet
+   - Fila para cadeiras (multiplas)
+   - Dois caixas (um pode aceitar pix, outro não)
